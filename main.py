@@ -14,7 +14,7 @@ import UTILS.set_up_matplotlib
 import DATASETS.get_dataset
 from DATASETS.load_dataset import get_images
 import DATASETS.LABELS.load_labels
-from evaluation import cal_evaluation
+from UTILS.evaluation import cal_evaluation
 
 if __name__ == '__main__':
     images = get_images()
@@ -33,5 +33,5 @@ if __name__ == '__main__':
     dataset_size = 274
     model_w2v = gensim.models.KeyedVectors.load_word2vec_format("DATASETS/GoogleNews-vectors-negative300.bin", binary=True)
 
-    cal_evaluation() #the results are saved with the model name in the data directory.
+    cal_evaluation('', device, model, preprocess, images, model_name, contexts, hierarchy, tokenize_fn) #  the results are saved with the model name in the data directory.
 

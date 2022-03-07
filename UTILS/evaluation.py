@@ -1,7 +1,7 @@
 
 from UTILS.utils import *
 
-def cal_evaluation(path, model_name, contexts, labels):
+def cal_evaluation(path, device, model, preprocess, images, model_name, contexts, labels, tokenize_fn):
   if not os.path.exists(path+"/DATA/"+model_name+"_benchmark_results.pt"):
     results = {context:{} for context in contexts}
     super_labels = [super_label for super_label in labels]
@@ -18,26 +18,21 @@ def cal_evaluation(path, model_name, contexts, labels):
       text_basic = tokenize_fn([context+label for label in basic_labels]).to(device)
 
       # ----- COLLECTING THE DATA -------------------------------------------------------------------------------------------------
-      original_predictions = compute_original_preds(batch_size=128)
-      wordsAdd_predictions = compute_new_preds(batch_size=128)
+      original_predictions = compute_original_preds(device, model, preprocess, images, text_basic, text_super, model_name, contexts, context, batch_size=128)
+      wordsAdd_predictions = compute_new_preds(device, model, preprocess, images, super_labels, basic_labels, text_basic, text_super, model_name, contexts, context, batch_size=128)
 
-      # ----- TEST 1 - EFFICIENCY OF WORD-ADDITION (EWA) - 4 NUMBERS --------------------------------------------------------------------------------
-      EWA = get_EWA()
+      # ----- TEST 1 - EFFICIENCY OF WORD-ADDITION (EWA) - (task switching in the paper)) --------------------------------------------------------------------------------
+      EWA = get_EWA(super_labels, basic_labels, original_predictions, wordsAdd_predictions)
 
-      # ----- TEST 2&3 - NEW WORD & ADDED WORD CORRELATION (NAC) - ORIGINAL WORD & ADDED WORD CORRELATION (OAC) - 4 DISTRIBUTIONS --------------------------------------------------------------------------------
-      # Ref nonswitch : similarity between original prediction & added-word on nonEFFECTIVE word-added images
+      # Ref nonswitch : semantic/spelling similarity between original prediction & added-word on nonEFFECTIVE word-added images (fig3)
       REF_nonswitch_semantic = get_word_correlation_references_nonswitchonly(semantic_similarity_w2v)
       REF_nonswitch_spelling = get_word_correlation_references_nonswitchonly(jellyfish.jaro_winkler_similarity)
 
-      # OAC distributions : similarity between original prediction & added-word on EFFECTIVE word-added images
+      # OAC distributions : semantic/spelling similarity between original prediction & added-word on EFFECTIVE word-added images (fig3)
       OAC_semantic = get_OAC(semantic_similarity_w2v)
       OAC_spelling = get_OAC(jellyfish.jaro_winkler_similarity)
 
-      # NAC distributions : similarity between new prediction & added-word on EFFECTIVE word-added images
-      NAC_semantic = get_NAC(semantic_similarity_w2v)
-      NAC_spelling = get_NAC(jellyfish.jaro_winkler_similarity)
-
-      # ----- TEST 4 - CONFIDENCE ON MISCLASSIFIED images (COM) - 4 DISTRIBUTIONS ------
+      # ----- TEST 4 - CONFIDENCE ON MISCLASSIFIED images (COM) - 4 DISTRIBUTIONS (figure e1)------
       COM_original = get_COM_original()
       COM_new      = get_COM_new()
       REF_nonswitch_proba = get_probabilities_references_nonswitched()

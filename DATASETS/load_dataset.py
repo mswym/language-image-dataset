@@ -1,7 +1,7 @@
 import scipy.io
 
 # i : LABEL - HUMAN/NONHUMAN - FACE/BODY - ANIMATE/INANIMATE - NATURAL/ARTIFICIAL - PIXELS
-s_92 = scipy.io.loadmat('DATASETS/dataset1.mat')
+# s_92 = scipy.io.loadmat('DATASETS/dataset1.mat')
 # i : LABEL - PIXELS - ANIMATE - SMALL - MEDIUM - LARGE
 s_118 = scipy.io.loadmat('DATASETS/dataset2.mat')
 # i : PIXELS - TWINSET - ('animals', 'objects', 'scenes', 'people', or 'faces')

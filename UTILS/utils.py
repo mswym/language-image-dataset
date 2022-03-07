@@ -18,7 +18,7 @@ def get_stimuli(i, images, preprocess=None, word=None, raw=False):
     :return:
     """
     img = Image.fromarray(images[i])
-    img.show()
+    #img.show()
     # --- ADD WORD TO STIMULI
     if None is not word:
         img_width, img_height = img.size
@@ -38,7 +38,7 @@ def get_stimuli(i, images, preprocess=None, word=None, raw=False):
         return img
 
 
-def get_stimulis(a, b, preprocess=None, word=None):
+def get_stimulis(a, b, images, preprocess=None, word=None):
     """
         Cell  #1 of Classification for word-superimposed images / UTILS
     :param a:
@@ -47,11 +47,10 @@ def get_stimulis(a, b, preprocess=None, word=None):
     :param word:
     :return:
     """
-    return torch.cat(([get_stimuli(i, preprocess=preprocess, word=word).unsqueeze(0) for i in range(a, b)]))
+    return torch.cat(([get_stimuli(i, images, preprocess=preprocess, word=word).unsqueeze(0) for i in range(a, b)]))
 
 
-def compute_original_preds(model, preprocess, text_basic, text_super, model_name: str, contexts: list, context: str,
-                           device: str, batch_size=128):
+def compute_original_preds(device, model, preprocess, images, text_basic, text_super, model_name, contexts, context, batch_size=128):
     """
             Cell #2 of Classification for word-superimposed images / UTILS
     :param model:
@@ -76,7 +75,7 @@ def compute_original_preds(model, preprocess, text_basic, text_super, model_name
         # ---- PROCESSING DATA IN MINI-BATCHES --------------------------------
         for i in range(0, math.ceil(dataset_size / batch_size)):
             a, b = i * batch_size, min(dataset_size, i * batch_size + batch_size)
-            batch = get_stimulis(a, b, preprocess).to(device)
+            batch = get_stimulis(a, b, images, preprocess).to(device)
 
             # --- BASIC PREDICTIONS ------------------------------------------
             with torch.no_grad():
@@ -138,8 +137,7 @@ def get_original_preds(i, original_predictions, super_labels, basic_labels, disp
     return data
 
 
-def compute_new_preds(model_name: str, model, preprocess, super_labels, basic_labels, text_basic, text_super, device,
-                      contexts: list, context: str, batch_size=128):
+def compute_new_preds(device, model, preprocess, images, super_labels, basic_labels, text_basic, text_super, model_name, contexts, context, batch_size=128):
     """
             Cell #4 of Classification for word-superimposed images / UTILS
     :param model_name:
@@ -178,7 +176,7 @@ def compute_new_preds(model_name: str, model, preprocess, super_labels, basic_la
         # ---- PROCESSING DATA IN MINI-BATCHES --------------------------------
         for i in range(0, math.ceil(dataset_size / batch_size)):
             a, b = i * batch_size, min(dataset_size, i * batch_size + batch_size)
-            images = get_stimulis(a, b, preprocess, word).to(device)
+            images = get_stimulis(a, b, images, preprocess, word).to(device)
 
             # --- BASIC PREDICTIONS ------------------------------------------
             with torch.no_grad():
@@ -270,7 +268,7 @@ def semantic_similarity_w2v(w1, w2, model_w2v):
     return torch.nn.CosineSimilarity(dim=0)(f1, f2).item()
 
 
-def get_EWA():
+def get_EWA(super_labels, basic_labels, original_predictions, wordsAdd_predictions):
     miss_rates = {"Superordinate": {}, "Basic": {}}
     miss_rates["Superordinate"]["Superordinate"] = 0.0
     miss_rates["Basic"]["Superordinate"] = 0.0
@@ -282,7 +280,7 @@ def get_EWA():
     counted_super = 0
     for wa in super_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
             if (wa != super_labels[original_preds["Superordinate"]["Prediction"]]):
                 miss_rates["Superordinate"]["Superordinate"] += (
                         original_preds["Superordinate"]["Prediction"].item() != new_preds["Superordinate"][
@@ -298,7 +296,7 @@ def get_EWA():
     counted_basic = 0
     for wa in basic_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
             if (wa != basic_labels[original_preds["Basic"]["Prediction"]]):
                 miss_rates["Basic"]["Basic"] += (
                         original_preds["Basic"]["Prediction"].item() != new_preds["Basic"]["Prediction"].item())
