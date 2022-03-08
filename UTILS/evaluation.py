@@ -1,8 +1,8 @@
-
 from UTILS.utils import *
+import jellyfish
 
 def cal_evaluation(path, device, model, preprocess, images, model_name, contexts, labels, tokenize_fn):
-  if not os.path.exists(path+"/DATA/"+model_name+"_benchmark_results.pt"):
+  if not os.path.exists(path+"DATA/"+model_name+"_benchmark_results.pt"):
     results = {context:{} for context in contexts}
     super_labels = [super_label for super_label in labels]
     basic_labels = sorted(sum([[basic_label for basic_label in labels[super_label]] for super_label in labels],[]))
@@ -25,20 +25,20 @@ def cal_evaluation(path, device, model, preprocess, images, model_name, contexts
       EWA = get_EWA(super_labels, basic_labels, original_predictions, wordsAdd_predictions)
 
       # Ref nonswitch : semantic/spelling similarity between original prediction & added-word on nonEFFECTIVE word-added images (fig3)
-      REF_nonswitch_semantic = get_word_correlation_references_nonswitchonly(semantic_similarity_w2v)
-      REF_nonswitch_spelling = get_word_correlation_references_nonswitchonly(jellyfish.jaro_winkler_similarity)
+      REF_nonswitch_semantic = get_word_correlation_references_nonswitchonly(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      REF_nonswitch_spelling = get_word_correlation_references_nonswitchonly(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
       # OAC distributions : semantic/spelling similarity between original prediction & added-word on EFFECTIVE word-added images (fig3)
-      OAC_semantic = get_OAC(semantic_similarity_w2v)
-      OAC_spelling = get_OAC(jellyfish.jaro_winkler_similarity)
+      OAC_semantic = get_OAC(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      OAC_spelling = get_OAC(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
       # ----- TEST 4 - CONFIDENCE ON MISCLASSIFIED images (COM) - 4 DISTRIBUTIONS (figure e1)------
-      COM_original = get_COM_original()
-      COM_new      = get_COM_new()
-      REF_nonswitch_proba = get_probabilities_references_nonswitched()
-      COM_neworiginal = get_COM_neworiginal()
+      COM_original = get_COM_original(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      COM_new      = get_COM_new(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      REF_nonswitch_proba = get_probabilities_references_nonswitched(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      COM_neworiginal = get_COM_neworiginal(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
-      results[context] = [EWA, REF_nonswitch_semantic, REF_nonswitch_spelling, NAC_semantic, NAC_spelling, OAC_semantic, OAC_spelling, COM_original, COM_new, REF_nonswitch_proba, COM_neworiginal]
+      results[context] = [EWA, REF_nonswitch_semantic, REF_nonswitch_spelling, OAC_semantic, OAC_spelling, COM_original, COM_new, REF_nonswitch_proba, COM_neworiginal]
 
-    torch.save(results,path+"/DATA/"+model_name+"_benchmark_results.pt")
+    torch.save(results,path+"DATA/"+model_name+"_benchmark_results.pt")
   # -----------------------------------------------------------

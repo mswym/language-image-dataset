@@ -1,12 +1,6 @@
 # --- IMPORTS
-import torchvision, jellyfish, warnings, scipy.io, zipfile, gensim, urllib, torch, numpy, json, math, clip, os
-from scipy.stats import normaltest, shapiro, mannwhitneyu
-from PIL import ImageFont, ImageDraw, Image
-import matplotlib.patches as mpatches
-from matplotlib import font_manager
+import torch, clip
 import matplotlib.pyplot as plt
-import torch.nn.functional as F
-import statistics
 
 # SCRIPTS
 import FONTS.get_fonts
@@ -31,7 +25,7 @@ if __name__ == '__main__':
 
     contexts = ["a photo of a "]
     dataset_size = 274
-    model_w2v = gensim.models.KeyedVectors.load_word2vec_format("DATASETS/GoogleNews-vectors-negative300.bin", binary=True)
 
     cal_evaluation('', device, model, preprocess, images, model_name, contexts, hierarchy, tokenize_fn) #  the results are saved with the model name in the data directory.
+
 

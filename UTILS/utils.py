@@ -4,7 +4,11 @@ import numpy
 import math
 import os
 import clip
+import gensim
 import matplotlib as plt
+
+# SCRIPTS
+model_w2v = gensim.models.KeyedVectors.load_word2vec_format("DATASETS/GoogleNews-vectors-negative300.bin", binary=True)
 
 
 def get_stimuli(i, images, preprocess=None, word=None, raw=False):
@@ -23,7 +27,7 @@ def get_stimuli(i, images, preprocess=None, word=None, raw=False):
     if None is not word:
         img_width, img_height = img.size
         fontsize = math.floor(img_width / 6)
-        font = ImageFont.truetype("/FONTS/arial.ttf", fontsize)
+        font = ImageFont.truetype("FONTS/arial.ttf", fontsize)
         text_width, text_height = font.getsize(word)
         x, y = img_width / 2 - text_width / 2, img_height / 2 - text_height / 2
         draw = ImageDraw.Draw(img)
@@ -107,7 +111,7 @@ def compute_original_preds(device, model, preprocess, images, text_basic, text_s
     return original_predictions
 
 
-def get_original_preds(i, original_predictions, super_labels, basic_labels, display=False):
+def get_original_preds(i, original_predictions, super_labels, basic_labels, display=False, images=[]):
     """
         Cell #3 of Classification for word-superimposed images / UTILS
     :param i:
@@ -128,7 +132,7 @@ def get_original_preds(i, original_predictions, super_labels, basic_labels, disp
     basic_proba = data["Basic"]["Probas"][basic_pred]
 
     if display:
-        stimuli = get_stimuli(i)
+        stimuli = get_stimuli(i, images)
         plt.imshow(stimuli.cpu())
         plt.show()
         print(f"SUPERORDINATE LABEL \t: {super_labels[super_pred]} | {super_proba * 100}%")
@@ -176,17 +180,17 @@ def compute_new_preds(device, model, preprocess, images, super_labels, basic_lab
         # ---- PROCESSING DATA IN MINI-BATCHES --------------------------------
         for i in range(0, math.ceil(dataset_size / batch_size)):
             a, b = i * batch_size, min(dataset_size, i * batch_size + batch_size)
-            images = get_stimulis(a, b, images, preprocess, word).to(device)
+            batch = get_stimulis(a, b, images, preprocess, word).to(device)
 
             # --- BASIC PREDICTIONS ------------------------------------------
             with torch.no_grad():
-                logits_per_image_basic, _ = model(images, text_basic)
+                logits_per_image_basic, _ = model(batch, text_basic)
                 probs_basic = logits_per_image_basic.softmax(dim=-1)
                 _, preds_basic = torch.max(probs_basic, 1)
 
             # --- SUPERORDINATE PREDICTIONS ----------------------------------
             with torch.no_grad():
-                logits_per_image_super, _ = model(images, text_super)
+                logits_per_image_super, _ = model(batch, text_super)
                 probs_super = logits_per_image_super.softmax(dim=-1)
                 _, preds_super = torch.max(probs_super, 1)
 
@@ -208,7 +212,7 @@ def compute_new_preds(device, model, preprocess, images, super_labels, basic_lab
     return wordsAdd_predictions
 
 
-def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels, display=False):
+def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels, display=False, original_predictions=[], images=[]):
     """
         Cell #5 of Classification for word-superimposed images / UTILS
     :param i:
@@ -220,9 +224,9 @@ def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels,
     :return:
     """
     data = wordsAdd_predictions[word][i]
-    og_data = get_original_preds(i)
 
     if display:
+        og_data = get_original_preds(i, original_predictions, super_labels, basic_labels)
         og_super_pred = og_data["Superordinate"]["Prediction"]
         og_super_logit = og_data["Superordinate"]["Logits"][og_super_pred]
         og_super_proba = og_data["Superordinate"]["Probas"][og_super_pred]
@@ -247,7 +251,7 @@ def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels,
         og_basic_newLogit = data["Basic"]["Logits"][og_basic_pred]
         og_basic_newProba = data["Basic"]["Probas"][og_basic_pred]
 
-        stimuli = get_stimuli(i, preprocess=None, word=word)
+        stimuli = get_stimuli(i, images, preprocess=None, word=word)
         plt.imshow(stimuli.cpu())
         plt.show()
 
@@ -263,7 +267,7 @@ def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels,
     return data
 
 
-def semantic_similarity_w2v(w1, w2, model_w2v):
+def semantic_similarity_w2v(w1, w2, model_w2v=model_w2v):
     f1, f2 = torch.tensor(model_w2v[w1]), torch.tensor(model_w2v[w2])
     return torch.nn.CosineSimilarity(dim=0)(f1, f2).item()
 
@@ -326,7 +330,7 @@ def get_word_correlation_references(metric):
             similarities = []
             for wa in added_words:
                 for i in range(0, 274):
-                    original_data = get_original_preds(i)
+                    original_data = get_original_preds(i, original_predictions, super_labels, basic_labels)
                     original_pred = original_data[pred_category]["Prediction"]
                     original_label = labels[original_pred]
 
@@ -338,7 +342,7 @@ def get_word_correlation_references(metric):
     return references
 
 
-def get_word_correlation_references_nonswitchonly(metric):
+def get_word_correlation_references_nonswitchonly(metric, basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     references = {"Superordinate": {}, "Basic": {}}
     references["Superordinate"]["Superordinate"] = []
     references["Basic"]["Superordinate"] = []
@@ -353,7 +357,7 @@ def get_word_correlation_references_nonswitchonly(metric):
             similarities = []
             for wa in added_words:
                 for i in range(0, 274):
-                    original_data, new_data = get_original_preds(i), get_wordAdd_preds(i, wa)
+                    original_data, new_data = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
                     original_pred, new_pred = original_data[pred_category]["Prediction"], new_data[pred_category][
                         "Prediction"]
                     original_label, new_label = labels[original_pred], labels[new_pred]
@@ -366,7 +370,7 @@ def get_word_correlation_references_nonswitchonly(metric):
     return references
 
 
-def get_OAC(metric):
+def get_OAC(metric, basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     references = {"Superordinate": {}, "Basic": {}}
     references["Superordinate"]["Superordinate"] = []
     references["Basic"]["Superordinate"] = []
@@ -381,7 +385,7 @@ def get_OAC(metric):
             similarities = []
             for wa in added_words:
                 for i in range(0, 274):
-                    original_data, new_data = get_original_preds(i), get_wordAdd_preds(i, wa)
+                    original_data, new_data = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
                     original_pred, new_pred = original_data[pred_category]["Prediction"], new_data[pred_category][
                         "Prediction"]
                     original_label, new_label = labels[original_pred], labels[new_pred]
@@ -434,7 +438,7 @@ def get_probabilities_references():
     return references
 
 
-def get_probabilities_references_nonswitched():
+def get_probabilities_references_nonswitched(basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     original_probs = {"Superordinate": {}, "Basic": {}}
     original_probs["Superordinate"]["Superordinate"] = []
     original_probs["Basic"]["Superordinate"] = []
@@ -444,7 +448,7 @@ def get_probabilities_references_nonswitched():
     # ----- SUPERORDINATE WA -------------------------------------------------------------------------------------------------
     for wa in super_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -461,7 +465,7 @@ def get_probabilities_references_nonswitched():
     # ----- BASIC WA --------------------------------------------------------------------------------------------------------
     for wa in basic_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -478,7 +482,7 @@ def get_probabilities_references_nonswitched():
     return original_probs
 
 
-def get_COM_original():
+def get_COM_original(basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     original_probs = {"Superordinate": {}, "Basic": {}}
     original_probs["Superordinate"]["Superordinate"] = []
     original_probs["Basic"]["Superordinate"] = []
@@ -488,7 +492,7 @@ def get_COM_original():
     # ----- SUPERORDINATE WA -------------------------------------------------------------------------------------------------
     for wa in super_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -505,7 +509,7 @@ def get_COM_original():
     # ----- BASIC WA --------------------------------------------------------------------------------------------------------
     for wa in basic_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -522,7 +526,7 @@ def get_COM_original():
     return original_probs
 
 
-def get_COM_new():
+def get_COM_new(basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     new_probs = {"Superordinate": {}, "Basic": {}}
     new_probs["Superordinate"]["Superordinate"] = []
     new_probs["Basic"]["Superordinate"] = []
@@ -532,7 +536,7 @@ def get_COM_new():
     # ----- SUPERORDINATE WA -------------------------------------------------------------------------------------------------
     for wa in super_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -548,7 +552,7 @@ def get_COM_new():
     # ----- BASIC WA --------------------------------------------------------------------------------------------------------
     for wa in basic_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -564,7 +568,7 @@ def get_COM_new():
     return new_probs
 
 
-def get_COM_neworiginal():
+def get_COM_neworiginal(basic_labels, super_labels, original_predictions, wordsAdd_predictions):
     new_probs = {"Superordinate": {}, "Basic": {}}
     new_probs["Superordinate"]["Superordinate"] = []
     new_probs["Basic"]["Superordinate"] = []
@@ -574,7 +578,7 @@ def get_COM_neworiginal():
     # ----- SUPERORDINATE WA -------------------------------------------------------------------------------------------------
     for wa in super_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
@@ -591,7 +595,7 @@ def get_COM_neworiginal():
     # ----- BASIC WA --------------------------------------------------------------------------------------------------------
     for wa in basic_labels:
         for i in range(0, 274):
-            original_preds, new_preds = get_original_preds(i), get_wordAdd_preds(i, wa)
+            original_preds, new_preds = get_original_preds(i, original_predictions, super_labels, basic_labels), get_wordAdd_preds(i, wa, wordsAdd_predictions, super_labels, basic_labels)
 
             # --- SUPERORDINATE PRED
             originalPred, newPred = original_preds["Superordinate"]["Prediction"], new_preds["Superordinate"][
