@@ -272,7 +272,7 @@ def semantic_similarity_w2v(w1, w2, model_w2v=model_w2v):
     return torch.nn.CosineSimilarity(dim=0)(f1, f2).item()
 
 
-def get_EWA(super_labels, basic_labels, original_predictions, wordsAdd_predictions):
+def get_switching_rate(super_labels, basic_labels, original_predictions, wordsAdd_predictions):
     miss_rates = {"Superordinate": {}, "Basic": {}}
     miss_rates["Superordinate"]["Superordinate"] = 0.0
     miss_rates["Basic"]["Superordinate"] = 0.0

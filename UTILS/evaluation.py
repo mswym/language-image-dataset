@@ -21,24 +21,24 @@ def cal_evaluation(path, device, model, preprocess, images, model_name, contexts
       original_predictions = compute_original_preds(device, model, preprocess, images, text_basic, text_super, model_name, contexts, context, batch_size=128)
       wordsAdd_predictions = compute_new_preds(device, model, preprocess, images, super_labels, basic_labels, text_basic, text_super, model_name, contexts, context, batch_size=128)
 
-      # ----- TEST 1 - EFFICIENCY OF WORD-ADDITION (EWA) - (task switching in the paper)) --------------------------------------------------------------------------------
-      EWA = get_EWA(super_labels, basic_labels, original_predictions, wordsAdd_predictions)
+      # ----- calculate the task switching rate --------------------------------------------------------------------------------
+      switching_rate = get_switching_rate(super_labels, basic_labels, original_predictions, wordsAdd_predictions)
 
-      # Ref nonswitch : semantic/spelling similarity between original prediction & added-word on nonEFFECTIVE word-added images (fig3)
-      REF_nonswitch_semantic = get_word_correlation_references_nonswitchonly(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
-      REF_nonswitch_spelling = get_word_correlation_references_nonswitchonly(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      # ----- semantic/spelling similarity between original prediction & added-word (fig3)
+      nonswitch_semantic = get_word_correlation_references_nonswitchonly(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      nonswitch_spelling = get_word_correlation_references_nonswitchonly(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
-      # OAC distributions : semantic/spelling similarity between original prediction & added-word on EFFECTIVE word-added images (fig3)
-      OAC_semantic = get_OAC(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
-      OAC_spelling = get_OAC(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      switch_semantic = get_OAC(semantic_similarity_w2v, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      switch_spelling = get_OAC(jellyfish.jaro_winkler_similarity, basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
-      # ----- TEST 4 - CONFIDENCE ON MISCLASSIFIED images (COM) - 4 DISTRIBUTIONS (figure e1)------
-      COM_original = get_COM_original(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
-      COM_new      = get_COM_new(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
-      REF_nonswitch_proba = get_probabilities_references_nonswitched(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
-      COM_neworiginal = get_COM_neworiginal(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      # ----- Prediction confidence (figure e1)------
+      switch_proba = get_COM_original(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      switch_new_proba_original = get_COM_new(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      nonswitch_proba = get_probabilities_references_nonswitched(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
+      switch_new_proba_new = get_COM_neworiginal(basic_labels, super_labels, original_predictions, wordsAdd_predictions)
 
-      results[context] = [EWA, REF_nonswitch_semantic, REF_nonswitch_spelling, OAC_semantic, OAC_spelling, COM_original, COM_new, REF_nonswitch_proba, COM_neworiginal]
+      results[context] = [switching_rate, nonswitch_semantic, nonswitch_spelling, switch_semantic, switch_spelling,
+                          switch_proba,switch_new_proba_original,nonswitch_proba,switch_new_proba_new]
 
     torch.save(results,path+"DATA/"+model_name+"_benchmark_results.pt")
   # -----------------------------------------------------------
