@@ -111,7 +111,7 @@ def compute_original_preds(device, model, preprocess, images, text_basic, text_s
     return original_predictions
 
 
-def get_original_preds(i, original_predictions, super_labels, basic_labels, display=False, images=[]):
+def get_original_preds(i, original_predictions, super_labels, basic_labels, display=False, images=None):
     """
         Cell #3 of Classification for word-superimposed images / UTILS
     :param i:
@@ -212,7 +212,7 @@ def compute_new_preds(device, model, preprocess, images, super_labels, basic_lab
     return wordsAdd_predictions
 
 
-def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels, display=False, original_predictions=[], images=[]):
+def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels, display=False, original_predictions=None, images=None):
     """
         Cell #5 of Classification for word-superimposed images / UTILS
     :param i:
@@ -268,7 +268,7 @@ def get_wordAdd_preds(i, word, wordsAdd_predictions, super_labels, basic_labels,
 
 
 def semantic_similarity_w2v(w1, w2, model_w2v=model_w2v):
-    f1, f2 = torch.tensor(model_w2v[w1]), torch.tensor(model_w2v[w2])
+    f1, f2 = torch.tensor(numpy.array(model_w2v[w1])), torch.tensor(numpy.array(model_w2v[w2]))
     return torch.nn.CosineSimilarity(dim=0)(f1, f2).item()
 
 
@@ -727,35 +727,4 @@ def display_img_with_ordered_labels(img, ordered_labels_x, ordered_labels_y, col
     ax.set_title(title)
 
 
-
-def hook_fn(module, input, output):
-    global reps
-    reps = input[0]
-
-
-images = torch.cat(
-    [preprocess(Image.fromarray(s_156['visual_stimuli156'][0][i][0])).unsqueeze(0) for i in range(156)]).to(device)
-
-
-def get_RDM(model, images):
-    if hasattr(model, 'classifier'):
-        hook = model.classifier[-1].register_forward_hook(hook_fn)
-    elif hasattr(model, 'fc'):
-        hook = model.fc.register_forward_hook(hook_fn)
-    else:
-        assert (False)
-
-    model.to(device)
-    model.eval()
-    with torch.no_grad():
-        _ = model(images)
-
-    similarities = []
-
-    for i in range(reps.size(0)):
-        similarities.append([])
-        for j in range(reps.size(0)):
-            similarities[len(similarities) - 1].append(torch.nn.CosineSimilarity(dim=0)(reps[i], reps[j]).item())
-
-    return similarities
 
