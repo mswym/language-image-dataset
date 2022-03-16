@@ -5,7 +5,7 @@ import math
 import os
 import clip
 import gensim
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 # SCRIPTS
 model_w2v = gensim.models.KeyedVectors.load_word2vec_format("DATASETS/GoogleNews-vectors-negative300.bin", binary=True)
