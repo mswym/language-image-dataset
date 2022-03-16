@@ -17,8 +17,7 @@ if __name__ == '__main__':
     super_labels, basic_labels, hierarchy = labels["SUPERORDINATES"], labels["BASICS"], labels["CLUSTERING"]
 
     # MODEL
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     model, preprocess = clip.load("ViT-B/32", device=device, jit=False)
     model_name = "clip"  # Name of the model
     preprocess_fn = preprocess  # Preprocessing to be applied on raw images
